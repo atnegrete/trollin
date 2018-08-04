@@ -24,7 +24,7 @@ public class GameSparksManager : Singleton<GameSparksManager>
     public GameObject PlayerPrefab;
     [HideInInspector]
     public List<PlayerController> Players;
-    private GSPlayerDetails mGSPlayerDetails;
+    public GSPlayerDetails GSPlayerDetailsLocal;
 
     public GameSparksManager()
     {
@@ -56,11 +56,9 @@ public class GameSparksManager : Singleton<GameSparksManager>
     #endregion
 
     #region Matchmaking
-    public void StartNewRTSession(RTSessionInfo _info, GSPlayerDetails playerDetails)
+    public void StartNewRTSession(RTSessionInfo _info)
     {
         GSReset();
-
-        mGSPlayerDetails = playerDetails;
 
         Debug.Log("GSM| Creating New RT Session Instance...");
         SessionInfo = _info;
@@ -112,7 +110,12 @@ public class GameSparksManager : Singleton<GameSparksManager>
     private void OnPlayerConnectedToGame(int _peerId)
     {
         Debug.Log("GSM| Player Connected, " + _peerId);
-        // Handle logic on [OnMatchUpdatedMessage] below
+        // Handle logic of a player connecting to game late
+        var data = new RTData();
+        data.SetFloat(1, GSPlayerDetailsLocal.color.red);
+        data.SetFloat(2, GSPlayerDetailsLocal.color.green);
+        data.SetFloat(3, GSPlayerDetailsLocal.color.blue);
+        GetRTSession().SendData(RTPacketController.OC_SR_OnPlayerLateJoinGetOtherPlayerDetails, GameSparksRT.DeliveryIntent.RELIABLE, data);
     }
 
     private void OnMatchUpdatedMessage(MatchUpdatedMessage m)
@@ -174,7 +177,7 @@ public class GameSparksManager : Singleton<GameSparksManager>
         }
         #endregion
 
-        PacketController.SendPlayerReady(mGSPlayerDetails);
+        PacketController.SendPlayerReady(GSPlayerDetailsLocal);
     }
 
     private void InstantiateConnectedPlayer(SpawnPoint spawnPoint, RTPlayerInfo playerInfo)
@@ -188,9 +191,9 @@ public class GameSparksManager : Singleton<GameSparksManager>
             bool isLocalPlayer = playerInfo.peerId == GetRTSession().PeerId;
             newPlayer.GetComponent<PlayerController>().SetupPlayer(spawnPoint.gameObject.transform, isLocalPlayer, playerInfo.peerId);
 
-            PlayerController addingPlayer = newPlayer.GetComponent<PlayerController>(); // add the new tank object to the corresponding reference in the list
+            PlayerController addingPlayer = newPlayer.GetComponent<PlayerController>();
             addingPlayer.RTPlayerInfo = playerInfo;
-            addingPlayer.SetUpGSPlayerDetails(mGSPlayerDetails); // add the new tank object to the corresponding reference in the list
+            addingPlayer.SetUpGSPlayerDetails(addingPlayer.RTPlayerInfo.GSPlayerDetails);
             Players.Add(addingPlayer);
         }
     }

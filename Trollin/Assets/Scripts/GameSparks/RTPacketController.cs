@@ -28,13 +28,14 @@ public class RTPacketController
     #region OP Codes
     public const int OC_SR_PlayerReady = 1;
     public const int OC_SR_PlayerMovementUpdate = 2;
+    public const int OC_SR_PlayerColorUpdate = 3;
     public const int OC_SR_PlayerFiredUpdate = 51;
     public const int OC_SR_PlayerHitUpdate = 52;
     public const int OC_S_PlayerDeath = 300;
     public const int OC_R_PlayerDeath = 301;
     public const int OC_R_MatchCountdownTimer = 100;
     public const int OC_R_MatchStart = 101;
-    public const int OC_SR_OnPlayerLateJoinGetOtherPlayerDetails = 500;
+    public const int OC_SR_OnPlayerLateJoinGetOtherPlayerDetails = 500; // Only sends to other players
     #endregion
 
     public void OnPacketReceived(RTPacket packet)
@@ -52,6 +53,9 @@ public class RTPacketController
                 break;
             case OC_SR_PlayerMovementUpdate: // Player Info Update Received 
                 ReceivedPlayerInfoUpdate(packet);
+                break;
+            case OC_SR_PlayerColorUpdate: // Received player ready packet (from another player).
+                ReceivedOtherPlayerColorUpdate(packet);
                 break;
             case OC_SR_PlayerFiredUpdate: // Player has shot a bullet
                 ReceivedPlayerShotBulletUpdate(packet);
@@ -105,35 +109,64 @@ public class RTPacketController
     public void SendPlayerReady(GSPlayerDetails playerDetails)
     {
         var manager = GameSparksManager.Instance;
-        var data = new RTData();
-        data.SetFloat(1, playerDetails.MaterialColor.r);
-        data.SetFloat(2, playerDetails.MaterialColor.g);
-        data.SetFloat(3, playerDetails.MaterialColor.b);
-        manager.GetRTSession().SendData(OC_SR_PlayerReady, GameSparksRT.DeliveryIntent.UNRELIABLE_SEQUENCED, data, TO_SERVER_ONLY);
+        manager.GetRTSession().SendData(OC_SR_PlayerReady, GameSparksRT.DeliveryIntent.UNRELIABLE_SEQUENCED, null, TO_SERVER_ONLY);
         if (OnMatchUpdatePlayersActive != null)
         {
             OnMatchUpdatePlayersActive(manager.GetRTSession().ActivePeers.Count);
         }
+
+        var data = new RTData();
+        data.SetFloat(1, playerDetails.color.red);
+        data.SetFloat(2, playerDetails.color.green);
+        data.SetFloat(3, playerDetails.color.blue);
+        int[] opponents = manager.GetRTSession().ActivePeers.ToList().Where(p => p != playerDetails.peerId).ToArray();
+        manager.GetRTSession().SendData(OC_SR_PlayerReady, GameSparksRT.DeliveryIntent.UNRELIABLE_SEQUENCED, data, opponents);
     }
 
     private void ReceivedPlayerReady(RTPacket packet)
     {
+        Debug.Log(packet.ToString());
         var senderPlayer = GameSparksManager.Instance.Players.ToList().Where(p => p.peerId == packet.Sender).First();
         if (senderPlayer != null)
         {
-            senderPlayer.RTPlayerInfo.GSPlayerDetails.SetRGBMaterialColor0to1(packet.Data.GetFloat(1) ?? 255, packet.Data.GetFloat(2) ?? 255, packet.Data.GetFloat(3) ?? 255);
+            senderPlayer.RTPlayerInfo.GSPlayerDetails.color.red = (float) packet.Data.GetFloat(1);
+            senderPlayer.RTPlayerInfo.GSPlayerDetails.color.green = (float) packet.Data.GetFloat(2);
+            senderPlayer.RTPlayerInfo.GSPlayerDetails.color.blue = (float) packet.Data.GetFloat(3);
+            senderPlayer.GetComponent<MeshRenderer>().material.color = senderPlayer.RTPlayerInfo.GSPlayerDetails.MaterialColor;
+        }
+    }
+
+    private void ReceivedOtherPlayerColorUpdate(RTPacket packet)
+    {
+        Debug.Log(packet.ToString());
+        var senderPlayer = GameSparksManager.Instance.Players.ToList().Where(p => p.peerId == packet.Sender).First();
+        if (senderPlayer != null)
+        {
+            senderPlayer.RTPlayerInfo.GSPlayerDetails.color.red = (float)packet.Data.GetFloat(1);
+            senderPlayer.RTPlayerInfo.GSPlayerDetails.color.green = (float)packet.Data.GetFloat(2);
+            senderPlayer.RTPlayerInfo.GSPlayerDetails.color.blue = (float)packet.Data.GetFloat(3);
             senderPlayer.GetComponent<MeshRenderer>().material.color = senderPlayer.RTPlayerInfo.GSPlayerDetails.MaterialColor;
         }
     }
 
     private void ReceivedOtherPlayerDetails(RTPacket packet)
     {
-        string otherPlayerDetails = packet.Data.GetString(1);
-        List<GSPlayerDetails> playerInfos = JsonUtility.FromJson<List<GSPlayerDetails>>(otherPlayerDetails);
-        playerInfos.ForEach(gs =>
+        Debug.Log(packet.ToString());
+        var player = GameSparksManager.Instance.Players.Where(p => p.peerId == packet.Sender).First();
+        if(player != null && player.RTPlayerInfo != null)
         {
+            // Update the GS Player Details
+            player.RTPlayerInfo.GSPlayerDetails.color.red = (float)packet.Data.GetFloat(1);
+            player.RTPlayerInfo.GSPlayerDetails.color.green = (float)packet.Data.GetFloat(2);
+            player.RTPlayerInfo.GSPlayerDetails.color.blue = (float)packet.Data.GetFloat(3);
 
-        });
+            // Then actually update the Game Model for rendering
+            if(player != null)
+            {
+                player.GetComponent<MeshRenderer>().material.color = player.RTPlayerInfo.GSPlayerDetails.MaterialColor;
+            }
+        }
+        
     }
 
     private void ReceivedPlayerInfoUpdate(RTPacket packet)
@@ -145,7 +178,6 @@ public class RTPacketController
     }
 
     #endregion
-
 
     #region Receiving Cloud Updates
     public void ReceivedMatchUpdateCountdownTimer(RTPacket packet)

@@ -74,15 +74,20 @@ public class PlayerController : MonoBehaviour {
     {
         // Setup player name WorldUI
         PlayerName.text = RTPlayerInfo.displayName;
+        GetComponent<MeshRenderer>().material.color = gs.MaterialColor;
     }
 
     // Use this for initialization
     void Start () {
         myRigidbody = GetComponent<Rigidbody>();
-        mainCamera = FindObjectOfType<Camera>();
-        AttachListeners();
         GetComponent<ParticleSystem>().Stop();
         playerGUI = FindObjectOfType<PlayerGUIPanel>();
+
+        if (isLocalPlayer)
+        {
+            AttachListeners();
+            mainCamera = FindObjectOfType<Camera>();
+        }
     }
 
     private void AttachListeners()
@@ -91,7 +96,7 @@ public class PlayerController : MonoBehaviour {
         {
             GameSparksManager.Instance.GetPacketController().OnPlayerMovementUpdate += OnOtherPlayerMovementUpdate;
             GameSparksManager.Instance.GetPacketController().OnPlayerIsHitEvent += OnOtherPlayerIsHitEvent;
-            GameSparksManager.Instance.GetPacketController().OnPlayerIsKilledEvent += OnOtherPlayerIsKilledEvent;
+            GameSparksManager.Instance.GetPacketController().OnPlayerIsKilledEvent += OnPlayerIsKilledEvent;
         }
     }
 
@@ -123,15 +128,15 @@ public class PlayerController : MonoBehaviour {
         if (peerId  == playerWhoHitPeerId) // local player killed someone, update GUI
         {
             var playerWhoHit = GameSparksManager.Instance.Players.Where(p => p.peerId == playerWhoHitPeerId).First();
-            //playerWhoHit.kills++;
         } 
     }
 
-    private void OnOtherPlayerIsKilledEvent(RTPacket packet)
+    private void OnPlayerIsKilledEvent(RTPacket packet)
     {
         int playerWhoHitPeerId = packet.Data.GetInt(1) ?? -1;
         int playersAlive = packet.Data.GetInt(2) ?? -1;
         Debug.Log(string.Format("GS | PLAYER KILLED: {0} BY: {1} ", packet.Sender, playerWhoHitPeerId));
+        Debug.Log(packet.ToString());
 
         // Local player killed him >> Update UI
         if (peerId == playerWhoHitPeerId)
@@ -193,15 +198,16 @@ public class PlayerController : MonoBehaviour {
     internal void OnDeath(RTPlayerInfo killedBy, int playersAliveFromServer)
     {
         dead = true;
-        diedPosition = this.transform.position;
+        diedPosition = myRigidbody.transform.position;
+        diedPosition.y = .21f;
 
         // Deactivate & destroy dead player
-        var spawnPos = transform.position;
-        transform.position = new Vector3(transform.position.x, -2f, transform.position.z);
-
         // Spawn dead prefab
         deadPrefab.GetComponent<MeshRenderer>().sharedMaterial.color = RTPlayerInfo.GSPlayerDetails.MaterialColor;
-        Instantiate(deadPrefab, spawnPos, deadPrefab.transform.rotation);
+        Instantiate(deadPrefab, diedPosition, deadPrefab.transform.rotation);
+
+        // Move player down
+        myRigidbody.transform.position = new Vector3(transform.position.x, -5f, transform.position.z);
 
         // Show kill log
         playerGUI.OnPlayerKilledAddLog(RTPlayerInfo.displayName, killedBy.displayName);
@@ -215,7 +221,6 @@ public class PlayerController : MonoBehaviour {
             playerGUI.OnUpdateAlivePlayers(playersAliveFromServer);
         }
 
-        // If local player died, show you are dead
         if(isLocalPlayer)
         {
             playerGUI.ShowYouAreDeadOrWon(false);
@@ -275,11 +280,11 @@ public class PlayerController : MonoBehaviour {
 
     private void OnOtherPlayerMovementUpdate(RTPacket packet)
     {
-        Debug.Log(packet.ToString());
+        //Debug.Log(packet.ToString());
         var playerList = GameSparksManager.Instance.Players;
         for (int i = 0; i < playerList.Count; i++)
         {
-            if (playerList[i].name == packet.Sender.ToString()) // Update the sender of the packet
+            if (playerList[i].name == packet.Sender.ToString() && !playerList[i].isLocalPlayer) // Update the sender of the packet
             {
                 playerList[i].goToPos = (Vector3)packet.Data.GetVector3(1); // Update sender's position
                 playerList[i].goToRot = (Vector3)packet.Data.GetVector3(2); // Update senders' direction
@@ -358,7 +363,7 @@ public class PlayerController : MonoBehaviour {
 
     private void LateUpdate()
     {
-        if(health <= 0)
+        if(health <= 0 && dead)
         {
             myRigidbody.transform.position = new Vector3(diedPosition.x, -20f, diedPosition.z);
         }

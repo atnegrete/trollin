@@ -189,7 +189,13 @@ public class GameSparksManager : Singleton<GameSparksManager>
             newPlayer.name = playerInfo.peerId.ToString();
             newPlayer.transform.SetParent(this.transform);
             bool isLocalPlayer = playerInfo.peerId == GetRTSession().PeerId;
-            newPlayer.GetComponent<PlayerController>().SetupPlayer(spawnPoint.gameObject.transform, isLocalPlayer, playerInfo.peerId);
+            newPlayer.GetComponentInChildren<PlayerController>().SetupPlayer(spawnPoint.gameObject.transform, isLocalPlayer, playerInfo.peerId);
+
+            // Set enemy tags
+            if(!isLocalPlayer)
+            {
+                newPlayer.gameObject.transform.Find("PlayerBody").tag = "EnemyPlayer";
+            }
 
             PlayerController addingPlayer = newPlayer.GetComponent<PlayerController>();
             addingPlayer.RTPlayerInfo = playerInfo;

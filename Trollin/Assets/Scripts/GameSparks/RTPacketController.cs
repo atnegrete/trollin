@@ -22,14 +22,16 @@ public class RTPacketController
     public event RTPacketEvent OnPlayerIsKilledEvent;
 
     public event RTPacketTriggerEvent OnMatchStartTrigger;
+    public event RTPacketPlayerMovementUpdate OnPlayerRotationUpdate;
     public event RTPacketPlayerMovementUpdate OnPlayerMovementUpdate;
-    public event RTPacketPlayerMovementUpdate OnPlayerShotBulletUpdate;
+    public event RTPacketPlayerMovementUpdate OnPlayerFiringUpdate;
 
     #region OP Codes
     public const int OC_SR_PlayerReady = 1;
+    public const int OC_SR_PlayerRotationUpdate = 4;
     public const int OC_SR_PlayerMovementUpdate = 2;
     public const int OC_SR_PlayerColorUpdate = 3;
-    public const int OC_SR_PlayerFiredUpdate = 51;
+    public const int OC_SR_PlayerFiringUpdate = 51;
     public const int OC_SR_PlayerHitUpdate = 52;
     public const int OC_S_PlayerDeath = 300;
     public const int OC_R_PlayerDeath = 301;
@@ -52,13 +54,16 @@ public class RTPacketController
                 ReceivedPlayerReady(packet);
                 break;
             case OC_SR_PlayerMovementUpdate: // Player Info Update Received 
-                ReceivedPlayerInfoUpdate(packet);
+                ReceivedPlayerMovementUpdate(packet);
+                break;
+            case OC_SR_PlayerRotationUpdate: // Player Info Update Received 
+                ReceivedPlayerRotationUpdate(packet);
                 break;
             case OC_SR_PlayerColorUpdate: // Received player ready packet (from another player).
                 ReceivedOtherPlayerColorUpdate(packet);
                 break;
-            case OC_SR_PlayerFiredUpdate: // Player has shot a bullet
-                ReceivedPlayerShotBulletUpdate(packet);
+            case OC_SR_PlayerFiringUpdate: // Player has shot a bullet
+                ReceivedPlayerFiringUpdate(packet);
                 break;
             case OC_SR_PlayerHitUpdate: // Player has gotten hit by a bullet
                 ReceivedPlayerIsHitUpdate(packet);
@@ -95,11 +100,11 @@ public class RTPacketController
         }
     }
 
-    private void ReceivedPlayerShotBulletUpdate(RTPacket packet)
+    private void ReceivedPlayerFiringUpdate(RTPacket packet)
     {
-        if (OnPlayerShotBulletUpdate != null)
+        if (OnPlayerFiringUpdate != null)
         {
-            OnPlayerShotBulletUpdate(packet);
+            OnPlayerFiringUpdate(packet);
         }
     }
     #endregion
@@ -132,7 +137,7 @@ public class RTPacketController
             senderPlayer.RTPlayerInfo.GSPlayerDetails.color.red = (float) packet.Data.GetFloat(1);
             senderPlayer.RTPlayerInfo.GSPlayerDetails.color.green = (float) packet.Data.GetFloat(2);
             senderPlayer.RTPlayerInfo.GSPlayerDetails.color.blue = (float) packet.Data.GetFloat(3);
-            senderPlayer.GetComponent<MeshRenderer>().material.color = senderPlayer.RTPlayerInfo.GSPlayerDetails.MaterialColor;
+            senderPlayer.transform.Find("PlayerBody").GetComponent<MeshRenderer>().material.color = senderPlayer.RTPlayerInfo.GSPlayerDetails.MaterialColor;
         }
     }
 
@@ -145,7 +150,7 @@ public class RTPacketController
             senderPlayer.RTPlayerInfo.GSPlayerDetails.color.red = (float)packet.Data.GetFloat(1);
             senderPlayer.RTPlayerInfo.GSPlayerDetails.color.green = (float)packet.Data.GetFloat(2);
             senderPlayer.RTPlayerInfo.GSPlayerDetails.color.blue = (float)packet.Data.GetFloat(3);
-            senderPlayer.GetComponent<MeshRenderer>().material.color = senderPlayer.RTPlayerInfo.GSPlayerDetails.MaterialColor;
+            senderPlayer.transform.Find("PlayerBody").GetComponent<MeshRenderer>().material.color = senderPlayer.RTPlayerInfo.GSPlayerDetails.MaterialColor;
         }
     }
 
@@ -163,17 +168,25 @@ public class RTPacketController
             // Then actually update the Game Model for rendering
             if(player != null)
             {
-                player.GetComponent<MeshRenderer>().material.color = player.RTPlayerInfo.GSPlayerDetails.MaterialColor;
+                player.transform.Find("PlayerBody").GetComponent<MeshRenderer>().material.color = player.RTPlayerInfo.GSPlayerDetails.MaterialColor;
             }
         }
         
     }
 
-    private void ReceivedPlayerInfoUpdate(RTPacket packet)
+    private void ReceivedPlayerMovementUpdate(RTPacket packet)
     {
         if(OnPlayerMovementUpdate != null)
         {
             OnPlayerMovementUpdate(packet);
+        }
+    }
+
+    private void ReceivedPlayerRotationUpdate(RTPacket packet)
+    {
+        if (OnPlayerRotationUpdate != null)
+        {
+            OnPlayerRotationUpdate(packet);
         }
     }
 

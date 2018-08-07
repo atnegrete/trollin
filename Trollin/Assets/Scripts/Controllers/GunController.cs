@@ -49,7 +49,7 @@ public class GunController : MonoBehaviour {
 	
 	// Update is called once per frame
 	void Update () {
-        if(isReloading)
+        if (isReloading)
         {
             return;
         }
@@ -91,8 +91,6 @@ public class GunController : MonoBehaviour {
             ShotsPerFireEffects = 0;
             shouldFire = false;
         }
-
-        fireController.lazer.enabled = shouldFire;
     }
 
     private void OnEnable()

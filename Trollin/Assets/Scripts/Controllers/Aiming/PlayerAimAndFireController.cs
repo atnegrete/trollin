@@ -73,6 +73,11 @@ public class PlayerAimAndFireController : MonoBehaviour
                 }
             }
         }
+
+        if (gun != null)
+        {
+            gun.fireController.lazer.enabled = gun.shouldFire;
+        }
     }
 
     void FixedUpdate ()

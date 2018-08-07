@@ -8,7 +8,6 @@ public class BulletController : MonoBehaviour
     public float speed;
     public float maxDistance;
     public int damage;
-    public AudioSource GunShotSound;
     public GameObject BulletShellPrefab;
     public ParticleSystem PSBulletHitEffect;
     private Vector3 hitPosition;
@@ -18,7 +17,7 @@ public class BulletController : MonoBehaviour
     void Start()
     {
         firedFromPosition = this.transform.position;
-        GunShotSound.Play();
+        hitPosition = Vector3.zero;
         PSBulletHitEffect.Stop();
         GameObject.Instantiate(BulletShellPrefab, this.transform.position + Vector3.back, this.transform.rotation);
     }
@@ -26,29 +25,40 @@ public class BulletController : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        this.transform.Translate(Vector3.forward * speed * Time.deltaTime);
-
         if (Vector3.Distance(firedFromPosition, transform.position) > maxDistance)
         {
             Destroy(this.gameObject);
         }
     }
 
-    private void OnTriggerEnter(Collider other)
+    private void FixedUpdate()
     {
-        if(other.CompareTag("Level"))
+        this.transform.Translate(Vector3.forward * speed * Time.deltaTime);
+    }
+
+    private void OnCollisionEnter(Collision collision)
+    {
+        // Check if we collided with a PlayerPrefab (Collision Layers: Player, Level)
+        if(!collision.collider.CompareTag("Player") && !collision.collider.CompareTag("EnemyPlayer"))
         {
+            hitPosition = transform.position
+                ;
             PSBulletHitEffect.Play();
-            hitPosition = this.transform.position;
-            Destroy(gameObject, 1.5f);
+            Destroy(gameObject, 2f);
+        } else
+        {
+            // If we did, then just destroy with no effects
+            Destroy(gameObject);
         }
     }
 
     private void LateUpdate()
     {
-        if(hitPosition != null)
+       if(hitPosition != Vector3.zero)
         {
             this.transform.position = hitPosition;
         }
     }
+
+
 }

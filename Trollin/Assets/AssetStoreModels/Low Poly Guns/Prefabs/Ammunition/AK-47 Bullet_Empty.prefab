@@ -22,7 +22,7 @@ GameObject:
   - component: {fileID: 33000011215653460}
   - component: {fileID: 23000013933685356}
   - component: {fileID: 114331237384942982}
-  - component: {fileID: 54273425908728144}
+  - component: {fileID: 54329359778652600}
   m_Layer: 12
   m_Name: AK-47 Bullet_Empty
   m_TagString: Untagged
@@ -85,7 +85,7 @@ MeshFilter:
   m_PrefabInternal: {fileID: 100100000}
   m_GameObject: {fileID: 1000012199955148}
   m_Mesh: {fileID: 4300000, guid: 8bc5ba843c19733498a420c5138ba13d, type: 3}
---- !u!54 &54273425908728144
+--- !u!54 &54329359778652600
 Rigidbody:
   m_ObjectHideFlags: 1
   m_CorrespondingSourceObject: {fileID: 0}

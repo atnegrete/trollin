@@ -10,6 +10,7 @@ TagManager:
   - Level
   - NoAimOffset
   - EnemyPlayer
+  - Magazine
   layers:
   - Default
   - TransparentFX
@@ -21,9 +22,9 @@ TagManager:
   - 
   - PostProcessing
   - Player
-  - 
-  - 
-  - 
+  - Level
+  - Ammo
+  - Shell
   - 
   - 
   - 

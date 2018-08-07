@@ -207,7 +207,7 @@ public class PlayerController : MonoBehaviour {
         playerGUI.OnPlayerKilledAddLog(RTPlayerInfo.displayName, killedBy.displayName);
 
         // Stop Couroutine for sending movement updates
-        // TODO: StopCoroutine(SendPlayerMovement());
+        StopCoroutine(SendPlayerMovement());
 
         // Update players alive from server if valid > 0
         if (playersAliveFromServer > 0)
@@ -287,11 +287,14 @@ public class PlayerController : MonoBehaviour {
 
     private void LocalMovementLogic()
     {
-        // Update Camera
-        mainCamera.transform.position = new Vector3(this.transform.position.x, mainCamera.transform.position.y, this.transform.position.z - 2.0f);
+        if(mainCamera != null)
+        {
+            // Update Camera
+            mainCamera.transform.position = new Vector3(this.transform.position.x, mainCamera.transform.position.y, this.transform.position.z - 2.0f);
 
-        moveInput = new Vector3(Input.GetAxisRaw("Horizontal"), 0f, Input.GetAxisRaw("Vertical"));
-        myMoveVelocity = moveInput * moveSpeed;
+            moveInput = new Vector3(Input.GetAxisRaw("Horizontal"), 0f, Input.GetAxisRaw("Vertical"));
+            myMoveVelocity = moveInput * moveSpeed;
+        }
     }
 
     private void FixedUpdate()

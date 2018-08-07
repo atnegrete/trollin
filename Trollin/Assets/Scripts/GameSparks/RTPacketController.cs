@@ -13,26 +13,31 @@ public class RTPacketController
     public delegate void RTPacketTriggerEvent();
     public delegate void RTPacketEventInt(int value);
     public delegate void RTPacketEventDoubleInt(int val1, int val2);
-    public delegate void RTPacketPlayerMovementUpdate(RTPacket packet);
     public delegate void RTPacketEvent(RTPacket packet);
 
     public event RTPacketEventInt OnMatchUpdateCountdownTimer;
     public event RTPacketEventInt OnMatchUpdatePlayersActive;
     public event RTPacketEvent OnPlayerIsHitEvent;
     public event RTPacketEvent OnPlayerIsKilledEvent;
+    public event RTPacketEvent OnPlayerChangedWeapon;
+    public event RTPacketEvent OnPlayerFiringUpdate;
+    public event RTPacketEvent OnPlayerReload;
 
     public event RTPacketTriggerEvent OnMatchStartTrigger;
-    public event RTPacketPlayerMovementUpdate OnPlayerRotationUpdate;
-    public event RTPacketPlayerMovementUpdate OnPlayerMovementUpdate;
-    public event RTPacketPlayerMovementUpdate OnPlayerFiringUpdate;
+    public event RTPacketEvent OnPlayerRotationUpdate;
+    public event RTPacketEvent OnPlayerMovementUpdate;
+
+
 
     #region OP Codes
     public const int OC_SR_PlayerReady = 1;
-    public const int OC_SR_PlayerRotationUpdate = 4;
     public const int OC_SR_PlayerMovementUpdate = 2;
     public const int OC_SR_PlayerColorUpdate = 3;
+    public const int OC_SR_PlayerRotationUpdate = 4;
+    public const int OC_SR_PlayerChangedWeapon = 5;
     public const int OC_SR_PlayerFiringUpdate = 51;
     public const int OC_SR_PlayerHitUpdate = 52;
+    public const int OC_SR_PlayerReload = 53;
     public const int OC_S_PlayerDeath = 300;
     public const int OC_R_PlayerDeath = 301;
     public const int OC_R_MatchCountdownTimer = 100;
@@ -62,11 +67,17 @@ public class RTPacketController
             case OC_SR_PlayerColorUpdate: // Received player ready packet (from another player).
                 ReceivedOtherPlayerColorUpdate(packet);
                 break;
+            case OC_SR_PlayerChangedWeapon:
+                ReceivedPlayerChangedWeaponUpdate(packet);
+                break;
             case OC_SR_PlayerFiringUpdate: // Player has shot a bullet
                 ReceivedPlayerFiringUpdate(packet);
                 break;
             case OC_SR_PlayerHitUpdate: // Player has gotten hit by a bullet
                 ReceivedPlayerIsHitUpdate(packet);
+                break;
+            case OC_SR_PlayerReload:
+                ReceivedPlayerReloadUpdate(packet);
                 break;
             case OC_R_PlayerDeath: // Player has died
                 ReceivedPlayerIsKilledUpdate(packet);
@@ -107,6 +118,14 @@ public class RTPacketController
             OnPlayerFiringUpdate(packet);
         }
     }
+
+    private void ReceivedPlayerReloadUpdate(RTPacket packet)
+    {
+        if (OnPlayerReload != null)
+        {
+            OnPlayerReload(packet);
+        }
+    }
     #endregion
 
     #region Updates & Movement
@@ -131,7 +150,7 @@ public class RTPacketController
     private void ReceivedPlayerReady(RTPacket packet)
     {
         Debug.Log(packet.ToString());
-        var senderPlayer = GameSparksManager.Instance.Players.ToList().Where(p => p.peerId == packet.Sender).First();
+        var senderPlayer = GameSparksManager.Instance.Players.ToList().Where(p => p.peerId == packet.Sender).FirstOrDefault();
         if (senderPlayer != null)
         {
             senderPlayer.RTPlayerInfo.GSPlayerDetails.color.red = (float) packet.Data.GetFloat(1);
@@ -190,6 +209,14 @@ public class RTPacketController
         }
     }
 
+    private void ReceivedPlayerChangedWeaponUpdate(RTPacket packet)
+    {
+        if(OnPlayerChangedWeapon != null)
+        {
+            OnPlayerChangedWeapon(packet);
+        }
+    }
+
     #endregion
 
     #region Receiving Cloud Updates
@@ -214,11 +241,5 @@ public class RTPacketController
         }
     }
     #endregion
-
-    internal void NotifyGlobalTimedEvents(object sender, ElapsedEventArgs e)
-    {
-        // Update Active Players
-        if (OnMatchUpdatePlayersActive != null) OnMatchUpdatePlayersActive(GameSparksManager.Instance.GetRTSession().ActivePeers.Count);
-    }
 
 }

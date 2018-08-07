@@ -135,11 +135,13 @@ public class MainMenuPanel : MonoBehaviour {
     private void BlockInput()
     {
         FindMatchButton.interactable = false;
+        ColorPicker.gameObject.SetActive(false);
     }
 
     private void UnblockInput()
     {
         FindMatchButton.interactable = true;
+        ColorPicker.gameObject.SetActive(true);
     }
 
     public void ChangePlayerColor()

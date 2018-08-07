@@ -19,7 +19,6 @@ public class PlayerAimAndFireController : MonoBehaviour
     public LineRenderer lazer;
     public GunController gun;
     PlayerController playerController;
-    GunController gunController;
     Rigidbody playerBody;
 
     private readonly float mUpdateRate = 0.1f;
@@ -56,19 +55,21 @@ public class PlayerAimAndFireController : MonoBehaviour
             UsingMouse();
         }
 
-        if (gun.shouldFire && !gun.player.isLocalPlayer)
+        if (gun != null && gun.shouldFire)
         {
             RaycastHit hit;
-            var fireTo = new Vector3(goToAimRealPosition.x, 0.5f, goToAimRealPosition.z);
             BulletController newBullet = Instantiate(gun.bullet, GunFirePosition.transform.position, GunFirePosition.transform.rotation) as BulletController;
 
-            if (Physics.Raycast(GunFirePosition.transform.position, (fireTo - GunFirePosition.transform.position), out hit, 100f))
+            Debug.DrawRay(GunFirePosition.transform.position, (goToTargetAimPoint - GunFirePosition.transform.position));
+
+            // Only shoot ray if it's not the local player, since we always deal damage only from opponents point of view.
+            if (Physics.Raycast(GunFirePosition.transform.position, (goToTargetAimPoint - GunFirePosition.transform.position), out hit, gun.bullet.maxDistance) && !gun.playerController.isLocalPlayer)
             {
                 var playerBodyControllerHit = hit.collider.gameObject.GetComponentInParent<PlayerController>();
                 // Dispatch on HitEvent if it wasn't self-inflicted damage (shouldn't happen)
-                if (playerBodyControllerHit != null && gun.player.peerId != playerBodyControllerHit.peerId) 
+                if (playerBodyControllerHit != null && gun.playerController.peerId != playerBodyControllerHit.peerId) 
                 {
-                    playerBodyControllerHit.OnGotHit(gun.bullet, gun.player.peerId);
+                    playerBodyControllerHit.OnGotHit(gun.bullet, gun.playerController.peerId);
                 }
             }
         }

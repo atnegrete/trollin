@@ -2,77 +2,63 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class BulletController : MonoBehaviour {
+public class BulletController : MonoBehaviour
+{
 
     public float speed;
+    public float maxDistance;
     public int damage;
-    public int bouncyness = 1;
+    public GameObject BulletShellPrefab;
+    public ParticleSystem PSBulletHitEffect;
+    private Vector3 hitPosition;
 
-    /// <summary> The peerId of the player that fired this bullet </summary>
-    [HideInInspector]
-    public int ownerPeerId;
+    private Vector3 firedFromPosition;
 
-    [SerializeField]
-    private GameObject GunShotSound;
-
-    /// <summary>This just keeps track of the time with Time.deltaTime</summary>
-    private float countDownTimer;
-    /// <summary>The duration the shell will stay enabled</summary>
-    private readonly float mLifeTime = 1f;
-    private bool hasCollided = false;
-
-    public void CreateBullet(int ownerPeerId, string uid)
+    void Start()
     {
-        this.gameObject.name = uid;
-        this.ownerPeerId = ownerPeerId;
-        this.countDownTimer = 0f;
-        this.gameObject.SetActive(true);
-
-        GameObject gunShot = Instantiate(GunShotSound, this.transform.position, this.transform.rotation) as GameObject;
+        firedFromPosition = this.transform.position;
+        hitPosition = Vector3.zero;
+        PSBulletHitEffect.Stop();
+        GameObject.Instantiate(BulletShellPrefab, this.transform.position + Vector3.back, this.transform.rotation);
     }
 
     // Update is called once per frame
-    void Update () {
-        this.transform.Translate(Vector3.forward * speed * Time.deltaTime);
-
-        // counts down as the update continues //
-        if (gameObject.activeSelf)
-        {
-            countDownTimer += Time.deltaTime;
-            if (countDownTimer >= mLifeTime)
-            { // if the timer reaches the lifetime, then disable the game object
-                Destroy(this.gameObject);
-                countDownTimer = 0f; // ... and reset the timer
-            }
-        }
-    }
-
-    private void OnTriggerEnter(Collider other)
+    void Update()
     {
-        if(other.gameObject.tag == "BulletIgnore")
+        if (Vector3.Distance(firedFromPosition, transform.position) > maxDistance)
         {
-            return;
+            Destroy(this.gameObject);
         }
-
-        // Prevent multiple collisions before deactivation.
-        if (hasCollided) return;
-        hasCollided = true;
-
-        if (other.gameObject.tag == "Player")
-        {
-            var playerHit = other.GetComponent<PlayerController>();
-            if (playerHit != null)
-            {
-                if(playerHit.peerId != ownerPeerId)
-                {
-                    playerHit.OnGotHit(this);
-                    // Destroy this bullet
-                    Destroy(this.gameObject);
-                } 
-            }
-        }
-
-        // Destroy this bullet
-        Destroy(this.gameObject);
     }
+
+    private void FixedUpdate()
+    {
+        this.transform.Translate(Vector3.forward * speed * Time.deltaTime);
+    }
+
+    private void OnCollisionEnter(Collision collision)
+    {
+        // Check if we collided with a PlayerPrefab (Collision Layers: Player, Level)
+        if(!collision.collider.CompareTag("Player") && !collision.collider.CompareTag("EnemyPlayer"))
+        {
+            hitPosition = transform.position
+                ;
+            PSBulletHitEffect.Play();
+            Destroy(gameObject, 2f);
+        } else
+        {
+            // If we did, then just destroy with no effects
+            Destroy(gameObject);
+        }
+    }
+
+    private void LateUpdate()
+    {
+       if(hitPosition != Vector3.zero)
+        {
+            this.transform.position = hitPosition;
+        }
+    }
+
+
 }

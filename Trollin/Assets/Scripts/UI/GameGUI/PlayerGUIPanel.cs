@@ -8,15 +8,20 @@ using GameSparks.RT;
 
 public class PlayerGUIPanel : MonoBehaviour {
 
+    public delegate void UpdateAmmoUI(RTPacket packet);
+    public event UpdateAmmoUI OnUpdateAmmoUI;
+
     public Text AlivePlayerCountText;
     public Text MatchCountdownText;
     public Text LocalPlayerKills;
     public Text KillsLog;
     public Text YouAreDead;
+    public Text AmmoText;
     public GameObject HealthBar;
 
     private List<string> mKillLogs;
     private readonly float mLogUpdateSecsRate = 20;
+    private GunController[] localPlayerGunControllers;
 
     // Use this for initialization
     void Start () {
@@ -29,6 +34,35 @@ public class PlayerGUIPanel : MonoBehaviour {
         LocalPlayerKills.text = "Kills: 0";
         YouAreDead.enabled = false;
         StartCoroutine(UpdateLog());
+
+        // Get local player
+        AttemptGetLocalPlayer();
+    }
+
+    private void Update()
+    {
+        // Set the current gun controller's ammo
+        if(localPlayerGunControllers != null)
+        {
+            var gun = localPlayerGunControllers.Where(g => g.isActiveAndEnabled).First();
+            if(gun != null)
+            {
+                AmmoText.text = String.Format("{0} | {1}", gun.currentAmmoInMag, gun.ExtraAmmo);
+            }
+        } else
+        {
+            AttemptGetLocalPlayer();
+        }
+    }
+
+    private void AttemptGetLocalPlayer()
+    {
+        // Get local player
+        var player = GameSparksManager.Instance.Players.Where(p => p.isLocalPlayer).First();
+        if (player != null)
+        {
+            localPlayerGunControllers = player.GetComponentsInChildren<GunController>();
+        }
     }
 
     public void UpdateKillScore(int kills)

@@ -3,7 +3,14 @@
 --- !u!78 &1
 TagManager:
   serializedVersion: 2
-  tags: []
+  tags:
+  - BulletIgnore
+  - MatchCountdownWalls
+  - SpawnPoints
+  - Level
+  - NoAimOffset
+  - EnemyPlayer
+  - Magazine
   layers:
   - Default
   - TransparentFX
@@ -14,10 +21,10 @@ TagManager:
   - 
   - 
   - PostProcessing
-  - 
-  - 
-  - 
-  - 
+  - Player
+  - Level
+  - Ammo
+  - Shell
   - 
   - 
   - 

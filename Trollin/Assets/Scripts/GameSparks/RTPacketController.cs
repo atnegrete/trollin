@@ -13,28 +13,36 @@ public class RTPacketController
     public delegate void RTPacketTriggerEvent();
     public delegate void RTPacketEventInt(int value);
     public delegate void RTPacketEventDoubleInt(int val1, int val2);
-    public delegate void RTPacketPlayerMovementUpdate(RTPacket packet);
     public delegate void RTPacketEvent(RTPacket packet);
 
     public event RTPacketEventInt OnMatchUpdateCountdownTimer;
     public event RTPacketEventInt OnMatchUpdatePlayersActive;
     public event RTPacketEvent OnPlayerIsHitEvent;
     public event RTPacketEvent OnPlayerIsKilledEvent;
+    public event RTPacketEvent OnPlayerChangedWeapon;
+    public event RTPacketEvent OnPlayerFiringUpdate;
+    public event RTPacketEvent OnPlayerReload;
 
     public event RTPacketTriggerEvent OnMatchStartTrigger;
-    public event RTPacketPlayerMovementUpdate OnPlayerMovementUpdate;
-    public event RTPacketPlayerMovementUpdate OnPlayerShotBulletUpdate;
+    public event RTPacketEvent OnPlayerRotationUpdate;
+    public event RTPacketEvent OnPlayerMovementUpdate;
+
+
 
     #region OP Codes
     public const int OC_SR_PlayerReady = 1;
     public const int OC_SR_PlayerMovementUpdate = 2;
-    public const int OC_SR_PlayerFiredUpdate = 51;
+    public const int OC_SR_PlayerColorUpdate = 3;
+    public const int OC_SR_PlayerRotationUpdate = 4;
+    public const int OC_SR_PlayerChangedWeapon = 5;
+    public const int OC_SR_PlayerFiringUpdate = 51;
     public const int OC_SR_PlayerHitUpdate = 52;
+    public const int OC_SR_PlayerReload = 53;
     public const int OC_S_PlayerDeath = 300;
     public const int OC_R_PlayerDeath = 301;
     public const int OC_R_MatchCountdownTimer = 100;
     public const int OC_R_MatchStart = 101;
-    public const int OC_SR_OnPlayerLateJoinGetOtherPlayerDetails = 500;
+    public const int OC_SR_OnPlayerLateJoinGetOtherPlayerDetails = 500; // Only sends to other players
     #endregion
 
     public void OnPacketReceived(RTPacket packet)
@@ -51,13 +59,25 @@ public class RTPacketController
                 ReceivedPlayerReady(packet);
                 break;
             case OC_SR_PlayerMovementUpdate: // Player Info Update Received 
-                ReceivedPlayerInfoUpdate(packet);
+                ReceivedPlayerMovementUpdate(packet);
                 break;
-            case OC_SR_PlayerFiredUpdate: // Player has shot a bullet
-                ReceivedPlayerShotBulletUpdate(packet);
+            case OC_SR_PlayerRotationUpdate: // Player Info Update Received 
+                ReceivedPlayerRotationUpdate(packet);
+                break;
+            case OC_SR_PlayerColorUpdate: // Received player ready packet (from another player).
+                ReceivedOtherPlayerColorUpdate(packet);
+                break;
+            case OC_SR_PlayerChangedWeapon:
+                ReceivedPlayerChangedWeaponUpdate(packet);
+                break;
+            case OC_SR_PlayerFiringUpdate: // Player has shot a bullet
+                ReceivedPlayerFiringUpdate(packet);
                 break;
             case OC_SR_PlayerHitUpdate: // Player has gotten hit by a bullet
                 ReceivedPlayerIsHitUpdate(packet);
+                break;
+            case OC_SR_PlayerReload:
+                ReceivedPlayerReloadUpdate(packet);
                 break;
             case OC_R_PlayerDeath: // Player has died
                 ReceivedPlayerIsKilledUpdate(packet);
@@ -91,11 +111,19 @@ public class RTPacketController
         }
     }
 
-    private void ReceivedPlayerShotBulletUpdate(RTPacket packet)
+    private void ReceivedPlayerFiringUpdate(RTPacket packet)
     {
-        if (OnPlayerShotBulletUpdate != null)
+        if (OnPlayerFiringUpdate != null)
         {
-            OnPlayerShotBulletUpdate(packet);
+            OnPlayerFiringUpdate(packet);
+        }
+    }
+
+    private void ReceivedPlayerReloadUpdate(RTPacket packet)
+    {
+        if (OnPlayerReload != null)
+        {
+            OnPlayerReload(packet);
         }
     }
     #endregion
@@ -105,38 +133,67 @@ public class RTPacketController
     public void SendPlayerReady(GSPlayerDetails playerDetails)
     {
         var manager = GameSparksManager.Instance;
-        var data = new RTData();
-        data.SetFloat(1, playerDetails.MaterialColor.r);
-        data.SetFloat(2, playerDetails.MaterialColor.g);
-        data.SetFloat(3, playerDetails.MaterialColor.b);
-        manager.GetRTSession().SendData(OC_SR_PlayerReady, GameSparksRT.DeliveryIntent.UNRELIABLE_SEQUENCED, data, TO_SERVER_ONLY);
+        manager.GetRTSession().SendData(OC_SR_PlayerReady, GameSparksRT.DeliveryIntent.UNRELIABLE_SEQUENCED, null, TO_SERVER_ONLY);
         if (OnMatchUpdatePlayersActive != null)
         {
             OnMatchUpdatePlayersActive(manager.GetRTSession().ActivePeers.Count);
         }
+
+        var data = new RTData();
+        data.SetFloat(1, playerDetails.color.red);
+        data.SetFloat(2, playerDetails.color.green);
+        data.SetFloat(3, playerDetails.color.blue);
+        int[] opponents = manager.GetRTSession().ActivePeers.ToList().Where(p => p != playerDetails.peerId).ToArray();
+        manager.GetRTSession().SendData(OC_SR_PlayerReady, GameSparksRT.DeliveryIntent.UNRELIABLE_SEQUENCED, data, opponents);
     }
 
     private void ReceivedPlayerReady(RTPacket packet)
     {
+        Debug.Log(packet.ToString());
+        var senderPlayer = GameSparksManager.Instance.Players.ToList().Where(p => p.peerId == packet.Sender).FirstOrDefault();
+        if (senderPlayer != null)
+        {
+            senderPlayer.RTPlayerInfo.GSPlayerDetails.color.red = (float) packet.Data.GetFloat(1);
+            senderPlayer.RTPlayerInfo.GSPlayerDetails.color.green = (float) packet.Data.GetFloat(2);
+            senderPlayer.RTPlayerInfo.GSPlayerDetails.color.blue = (float) packet.Data.GetFloat(3);
+            senderPlayer.transform.Find("PlayerBody").GetComponent<MeshRenderer>().material.color = senderPlayer.RTPlayerInfo.GSPlayerDetails.MaterialColor;
+        }
+    }
+
+    private void ReceivedOtherPlayerColorUpdate(RTPacket packet)
+    {
+        Debug.Log(packet.ToString());
         var senderPlayer = GameSparksManager.Instance.Players.ToList().Where(p => p.peerId == packet.Sender).First();
         if (senderPlayer != null)
         {
-            senderPlayer.RTPlayerInfo.GSPlayerDetails.SetRGBMaterialColor0to1(packet.Data.GetFloat(1) ?? 255, packet.Data.GetFloat(2) ?? 255, packet.Data.GetFloat(3) ?? 255);
-            senderPlayer.GetComponent<MeshRenderer>().material.color = senderPlayer.RTPlayerInfo.GSPlayerDetails.MaterialColor;
+            senderPlayer.RTPlayerInfo.GSPlayerDetails.color.red = (float)packet.Data.GetFloat(1);
+            senderPlayer.RTPlayerInfo.GSPlayerDetails.color.green = (float)packet.Data.GetFloat(2);
+            senderPlayer.RTPlayerInfo.GSPlayerDetails.color.blue = (float)packet.Data.GetFloat(3);
+            senderPlayer.transform.Find("PlayerBody").GetComponent<MeshRenderer>().material.color = senderPlayer.RTPlayerInfo.GSPlayerDetails.MaterialColor;
         }
     }
 
     private void ReceivedOtherPlayerDetails(RTPacket packet)
     {
-        string otherPlayerDetails = packet.Data.GetString(1);
-        List<GSPlayerDetails> playerInfos = JsonUtility.FromJson<List<GSPlayerDetails>>(otherPlayerDetails);
-        playerInfos.ForEach(gs =>
+        Debug.Log(packet.ToString());
+        var player = GameSparksManager.Instance.Players.Where(p => p.peerId == packet.Sender).First();
+        if(player != null && player.RTPlayerInfo != null)
         {
+            // Update the GS Player Details
+            player.RTPlayerInfo.GSPlayerDetails.color.red = (float)packet.Data.GetFloat(1);
+            player.RTPlayerInfo.GSPlayerDetails.color.green = (float)packet.Data.GetFloat(2);
+            player.RTPlayerInfo.GSPlayerDetails.color.blue = (float)packet.Data.GetFloat(3);
 
-        });
+            // Then actually update the Game Model for rendering
+            if(player != null)
+            {
+                player.transform.Find("PlayerBody").GetComponent<MeshRenderer>().material.color = player.RTPlayerInfo.GSPlayerDetails.MaterialColor;
+            }
+        }
+        
     }
 
-    private void ReceivedPlayerInfoUpdate(RTPacket packet)
+    private void ReceivedPlayerMovementUpdate(RTPacket packet)
     {
         if(OnPlayerMovementUpdate != null)
         {
@@ -144,8 +201,23 @@ public class RTPacketController
         }
     }
 
-    #endregion
+    private void ReceivedPlayerRotationUpdate(RTPacket packet)
+    {
+        if (OnPlayerRotationUpdate != null)
+        {
+            OnPlayerRotationUpdate(packet);
+        }
+    }
 
+    private void ReceivedPlayerChangedWeaponUpdate(RTPacket packet)
+    {
+        if(OnPlayerChangedWeapon != null)
+        {
+            OnPlayerChangedWeapon(packet);
+        }
+    }
+
+    #endregion
 
     #region Receiving Cloud Updates
     public void ReceivedMatchUpdateCountdownTimer(RTPacket packet)
@@ -169,11 +241,5 @@ public class RTPacketController
         }
     }
     #endregion
-
-    internal void NotifyGlobalTimedEvents(object sender, ElapsedEventArgs e)
-    {
-        // Update Active Players
-        if (OnMatchUpdatePlayersActive != null) OnMatchUpdatePlayersActive(GameSparksManager.Instance.GetRTSession().ActivePeers.Count);
-    }
 
 }

@@ -16,15 +16,22 @@ public class MainMenuPanel : MonoBehaviour {
     public Button FindMatchButton;
     public Text MatchStatusText;
     public ColorPicker ColorPicker;
+    public GameObject MainMenuPlayerPrefab;
 
     private RTSessionInfo tempRTSessionInfo;
+    private bool mPlayerHasChangedColor;
 
     void Awake () {
+        mPlayerHasChangedColor = false;
         FindMatchButton.onClick.AddListener(FindMatch);
         MatchNotFoundMessage.Listener += OnMatchNotFound;
 
-        // Request the players details
-        // TODO
+        // Get player Details
+        var gSPlayerDetailsLocal = GameSparksManager.Instance.GSPlayerDetailsLocal;
+
+        // Set color
+        MainMenuPlayerPrefab.GetComponent<MeshRenderer>().material.color = gSPlayerDetailsLocal.MaterialColor;
+        ColorPicker.Result = gSPlayerDetailsLocal.MaterialColor;
     }
 
     private void FindMatch()
@@ -36,14 +43,26 @@ public class MainMenuPanel : MonoBehaviour {
         request.SetSkill(1);
         request.Send(OnMatchmakingSuccess, OnMatchmakingError);
 
-        // Update color preference
-        var color = ColorPicker.PUBLIC_GetColor();
-        LogEventRequest_UP_Player_Details playerDetailsRequest = new LogEventRequest_UP_Player_Details();
-        Debug.Log(string.Format("GSM EVENT| RED {0}, G {1}, B {2}", color.r * 100, color.g * 100, color.b * 100));
-        playerDetailsRequest.Set_BLUE((long)(color.b*100)).Set_GREEN((long)(color.g*100)).Set_RED((long)(color.r*100)).Send((response) =>
+        // Update color preference if it has changed
+        if(mPlayerHasChangedColor)
         {
-            // TODO: Check for errors
-        });
+            var color = ColorPicker.PUBLIC_GetColor();
+            long red = (long)(color.r * 100L);
+            long green = (long)(color.g * 100L);
+            long blue = (long)(color.b * 100L);
+
+            LogEventRequest_UP_Player_Details playerDetailsRequest = new LogEventRequest_UP_Player_Details();
+            Debug.Log(string.Format("GSM EVENT| RED {0}, G {1}, B {2}", red, green, blue));
+            playerDetailsRequest
+                .Set_RED(red)
+                .Set_GREEN(green)
+                .Set_BLUE(blue)
+                .Send((response) =>
+                {
+                    // TODO: Check for errors
+                });
+        }
+
     }
 
     private void OnMatchmakingSuccess(MatchmakingResponse obj)
@@ -66,23 +85,39 @@ public class MainMenuPanel : MonoBehaviour {
         sBuilder.AppendLine("Opponents:" + _message.Participants.Count());
         sBuilder.AppendLine("_________________");
         sBuilder.AppendLine(); // we'll leave a space between the player-list and the match data
+
+        // Set the session info
+        tempRTSessionInfo = new RTSessionInfo(_message);
+
         foreach (GameSparks.Api.Messages.MatchFoundMessage._Participant player in _message.Participants)
         {
             sBuilder.AppendLine("Player:" + player.PeerId + " User Name:" + player.DisplayName); // add the player number and the display name to the list
-        }
 
-        tempRTSessionInfo = new RTSessionInfo(_message);
+            // Create a GS Player Details for each player
+            GSPlayerDetails matchPlayerDetails = new GSPlayerDetails() {
+                peerId = (int)player.PeerId,
+                playerId = player.Id
+            };
+
+            // For myself, keep my details (it has color) but update with peerId
+            if(matchPlayerDetails.playerId == GameSparksManager.Instance.GSPlayerDetailsLocal.playerId)
+            {
+                tempRTSessionInfo.GetRTPlayerList().Where(pi => pi.id == player.Id).First().GSPlayerDetails = GameSparksManager.Instance.GSPlayerDetailsLocal;
+                tempRTSessionInfo.GetRTPlayerList().Where(pi => pi.id == player.Id).First().GSPlayerDetails.peerId = matchPlayerDetails.peerId;
+            } else
+            {
+                tempRTSessionInfo.GetRTPlayerList().Where(pi => pi.id == player.Id).First().GSPlayerDetails = matchPlayerDetails;
+            }
+        }
 
         StartGSGameSession();
     }
 
     private void StartGSGameSession()
     {
-        // Set the player details for the game
-        GSPlayerDetails playerDetails = new GSPlayerDetails();
-        playerDetails.SetRGBMaterialColor0to1(ColorPicker.PUBLIC_GetColor().r, ColorPicker.PUBLIC_GetColor().g, ColorPicker.PUBLIC_GetColor().b);
-
-        GameSparksManager.Instance.StartNewRTSession(tempRTSessionInfo, playerDetails);
+        // Update the player details for picked color & Update on server also
+        GameSparksManager.Instance.GSPlayerDetailsLocal.SetRGBMaterialColor0to1(ColorPicker.PUBLIC_GetColor().r, ColorPicker.PUBLIC_GetColor().g, ColorPicker.PUBLIC_GetColor().b);
+        GameSparksManager.Instance.StartNewRTSession(tempRTSessionInfo);
     }
 
     private void OnMatchmakingError(MatchmakingResponse obj)
@@ -100,11 +135,21 @@ public class MainMenuPanel : MonoBehaviour {
     private void BlockInput()
     {
         FindMatchButton.interactable = false;
+        ColorPicker.gameObject.SetActive(false);
     }
 
     private void UnblockInput()
     {
         FindMatchButton.interactable = true;
+        ColorPicker.gameObject.SetActive(true);
+    }
+
+    public void ChangePlayerColor()
+    {
+        mPlayerHasChangedColor = true;
+        ColorPicker.PUBLIC_SetColor(MainMenuPlayerPrefab.GetComponent<MeshRenderer>());
+        GameSparksManager.Instance.GSPlayerDetailsLocal.
+            SetRGBMaterialColor0to1(ColorPicker.PUBLIC_GetColor().r, ColorPicker.PUBLIC_GetColor().g, ColorPicker.PUBLIC_GetColor().b);
     }
 
 }

@@ -1,5 +1,6 @@
 ﻿using GameSparks.Api.Requests;
 using GameSparks.Api.Responses;
+using GameSparks.Core;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -72,7 +73,22 @@ public class LoginPanel : MonoBehaviour {
 
     private void OnLoginSuccess(AuthenticationResponse obj)
     {
-        SceneManager.LoadScene(LoadingManager.LOBBY_SCENE);
+        LogEventRequest_GET_Player_Details requestPlayerDetails = new LogEventRequest_GET_Player_Details();
+        requestPlayerDetails.Send((resposne) => {
+            if(!resposne.HasErrors)
+            {
+                SceneManager.LoadScene(LoadingManager.LOBBY_SCENE);
+                GSData data = resposne.ScriptData.GetGSData("GSPlayerDetails");
+                GSPlayerDetails gSPlayerDetails = new GSPlayerDetails(data);
+                gSPlayerDetails.playerId = obj.UserId;
+                GameSparksManager.Instance.GSPlayerDetailsLocal = gSPlayerDetails;
+            }
+            else
+            {
+                ErrorMessageText.text = "Error getting GS Player Details.";
+                UnblockInput();
+            }
+        });
     }
 
     private void BlockInput()
